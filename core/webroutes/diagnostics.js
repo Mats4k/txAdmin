@@ -1,13 +1,13 @@
 const modulename = 'WebServer:Diagnostics';
 import os from 'node:os';
 import bytes from 'bytes';
-import pidusageTree from 'pidusage-tree';
 import humanizeDuration from 'humanize-duration';
 import logger from '@core/extras/console.js';
 import * as helpers from '@core/extras/helpers';
 import Cache from '../extras/dataCache';
 import got from '@core/extras/got.js';
 import getOsDistro from '@core/extras/getOsDistro.js';
+import pidUsageTree from '@core/extras/pidUsageTree.js';
 import { verbose, txEnv } from '@core/globalData.js';
 const { dir, log, logOk, logWarn, logError } = logger(modulename);
 
@@ -27,7 +27,7 @@ export default async function Diagnostics(ctx) {
 
     const timeStart = Date.now();
     const data = {
-        headerTitle: 'Full Report',
+        headerTitle: 'Diagnostics',
         message: '',
     };
     [data.host, data.txadmin, data.fxserver, data.proccesses] = await Promise.all([
@@ -54,7 +54,7 @@ export default async function Diagnostics(ctx) {
 async function getProcessesData() {
     const procList = [];
     try {
-        const processes = await pidusageTree(process.pid);
+        const processes = await pidUsageTree(process.pid);
 
         //NOTE: Cleaning invalid proccesses that might show up in Linux
         Object.keys(processes).forEach((pid) => {
@@ -87,7 +87,7 @@ async function getProcessesData() {
             });
         });
     } catch (error) {
-        logError('Error getting processes data.');
+        logError('Error getting processes tree usage data.');
         if (verbose) dir(error);
     }
 
@@ -116,7 +116,7 @@ async function getFXServerData() {
     const requestOptions = {
         url: `http://${globals.fxRunner.fxServerHost}/info.json`,
         maxRedirects: 0,
-        timeout: globals.monitor.hardConfigs.timeout,
+        timeout: globals.healthMonitor.hardConfigs.timeout,
         retry: {limit: 0},
     };
 
@@ -179,7 +179,7 @@ async function getHostData() {
             error: false,
         };
 
-        const stats = globals.monitor.hostStats;
+        const stats = globals.healthMonitor.hostStats;
         if (stats) {
             hostData.memory = `${stats.memory.usage}% (${stats.memory.used.toFixed(2)}/${stats.memory.total.toFixed(2)} GB)`;
             hostData.cpus = `${stats.cpu.usage}% of ${stats.cpu.count}x ${stats.cpu.speed} MHz`;
@@ -238,8 +238,8 @@ async function gettxAdminData() {
         loggerStatusServer: globals.logger.server.getUsageStats(),
 
         //Settings
-        cooldown: globals.monitor.config.cooldown,
-        schedule: globals.monitor.config.restarterSchedule.join(', ') || '--',
+        cooldown: globals.healthMonitor.config.cooldown,
+        schedule: globals.healthMonitor.config.restarterSchedule.join(', ') || '--',
         commandLine: (globals.fxRunner.config.commandLine && globals.fxRunner.config.commandLine.length)
             ? helpers.redactApiKeys(globals.fxRunner.config.commandLine)
             : '--',

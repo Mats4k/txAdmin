@@ -21,28 +21,31 @@ export const txAdminASCII = () => {
 
 /**
  * Extracts hours and minutes from an string containing times
- * @param {string} schedule
- * @param {boolean} filter default true
+ * @param {Array} scheduleTimes
+ * @param {Boolean} filter default true
+ * @return {Object} {valid, invalid}
  */
-export const parseSchedule = (schedule, filter = true) => {
-    const times = (typeof schedule === 'string') ? schedule.split(',') : schedule;
-    let out = [];
-    times.forEach((time) => {
-        if (!time.length) return;
-        const regex = /^$|^([01]?[0-9]|2[0-3]):([0-5][0-9])$/gm;
-        let m = regex.exec(time.trim());
+export const parseSchedule = (scheduleTimes) => {
+    const valid = [];
+    const invalid = [];
+    for (const timeInput of scheduleTimes) {
+        if (typeof timeInput !== 'string') continue;
+        const timeTrim = timeInput.trim();
+        if (!timeTrim.length) continue;
+
+        const hmRegex = /^$|^([01]?[0-9]|2[0-3]):([0-5][0-9])$/gm; //need to set it insde the loop
+        const m = hmRegex.exec(timeTrim);
         if (m === null) {
-            if (!filter) out.push(time);
+            invalid.push(timeTrim);
         } else {
-            out.push({
-                string: m[0],
-                hour: parseInt(m[1]),
-                minute: parseInt(m[2]),
+            valid.push({
+                string: m[1].padStart(2, '0') + ':' + m[2].padStart(2, '0'),
+                hours: parseInt(m[1]),
+                minutes: parseInt(m[2]),
             });
         }
-    });
-
-    return out;
+    }
+    return {valid, invalid};
 }
 
 
