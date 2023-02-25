@@ -1,8 +1,9 @@
 const modulename = 'ConfigVault';
 import fs from 'node:fs';
-import { cloneDeep }  from 'lodash-es';
+import { cloneDeep } from 'lodash-es';
 import logger from '@core/extras/console.js';
-import { verbose } from '@core/globalData.js';
+import { verbose } from '@core/globalData';
+import { defaultEmbedJson, defaultEmbedConfigJson } from '@core/components/DiscordBot/defaultJsons';
 const { dir, log, logOk, logWarn, logError } = logger(modulename);
 
 //Helper functions
@@ -40,7 +41,6 @@ export default class ConfigVault {
         this.config = null;
 
         this.setupVault();
-        // logOk('Started');
     }
 
 
@@ -99,7 +99,7 @@ export default class ConfigVault {
             global: null,
             logger: null,
             monitor: null,
-            playerController: null,
+            playerDatabase: null,
             webServer: null,
             discordBot: null,
             fxRunner: null,
@@ -108,7 +108,7 @@ export default class ConfigVault {
         //NOTE: this shit is ugly, but I wont bother fixing it.
         //      this entire config vault is stupid.
         //      use convict, lodash defaults or something like that
-        if (isUndefined(cfg.playerController)) cfg.playerController = {};
+        cfg.playerDatabase = cfg.playerDatabase ?? cfg.playerController ?? {};
 
         try {
             out.global = {
@@ -117,23 +117,29 @@ export default class ConfigVault {
                 menuEnabled: toDefault(cfg.global.menuEnabled, true),
                 menuAlignRight: toDefault(cfg.global.menuAlignRight, false),
                 menuPageKey: toDefault(cfg.global.menuPageKey, 'Tab'),
+                hideDefaultAnnouncement: toDefault(cfg.global.hideDefaultAnnouncement, false),
+                hideDefaultDirectMessage: toDefault(cfg.global.hideDefaultDirectMessage, false),
+                hideDefaultWarning: toDefault(cfg.global.hideDefaultWarning, false),
+                hideDefaultScheduledRestartWarning: toDefault(cfg.global.hideDefaultScheduledRestartWarning, false),
             };
             out.logger = toDefault(cfg.logger, {}); //not in template
             out.monitor = {
                 restarterSchedule: toDefault(cfg.monitor.restarterSchedule, []),
                 cooldown: toDefault(cfg.monitor.cooldown, null), //not in template
                 resourceStartingTolerance: toDefault(cfg.monitor.resourceStartingTolerance, 120), //not in template
-                disableChatWarnings: toDefault(cfg.monitor.disableChatWarnings, null), //not in template
             };
-            out.playerController = {
-                onJoinCheckBan: toDefault(cfg.playerController.onJoinCheckBan, true),
-                onJoinCheckWhitelist: toDefault(cfg.playerController.onJoinCheckWhitelist, false),
-                minSessionTime: toDefault(cfg.playerController.minSessionTime, 15),
+            out.playerDatabase = {
+                onJoinCheckBan: toDefault(cfg.playerDatabase.onJoinCheckBan, true),
+                whitelistMode: toDefault(cfg.playerDatabase.whitelistMode, 'disabled'),
+                whitelistedDiscordRoles: toDefault(cfg.playerDatabase.whitelistedDiscordRoles, []),
                 whitelistRejectionMessage: toDefault(
-                    cfg.playerController.whitelistRejectionMessage,
-                    'You are not yet whitelisted in this server.\nPlease join http://discord.gg/example.\nYour Request ID: <id>',
+                    cfg.playerDatabase.whitelistRejectionMessage,
+                    'Please join http://discord.gg/example and request to be whitelisted.',
                 ),
-                wipePendingWLOnStart: toDefault(cfg.playerController.wipePendingWLOnStart, true),
+                banRejectionMessage: toDefault(
+                    cfg.playerDatabase.banRejectionMessage,
+                    'You can join http://discord.gg/example to appeal this ban.',
+                ),
             };
             out.webServer = {
                 disableNuiSourceCheck: toDefault(cfg.webServer.disableNuiSourceCheck, false), //not in template
@@ -143,13 +149,10 @@ export default class ConfigVault {
             out.discordBot = {
                 enabled: toDefault(cfg.discordBot.enabled, null),
                 token: toDefault(cfg.discordBot.token, null),
+                guild: toDefault(cfg.discordBot.guild, null),
                 announceChannel: toDefault(cfg.discordBot.announceChannel, null),
-                prefix: toDefault(cfg.discordBot.prefix, '!'),
-                statusMessage: toDefault(
-                    cfg.discordBot.statusMessage,
-                    '**IP:** `change-me:<port>`\n**Players:** <players>\n**Uptime:** <uptime>',
-                ),
-                commandCooldown: toDefault(cfg.discordBot.commandCooldown, null), //not in template
+                embedJson: toDefault(cfg.discordBot.embedJson, defaultEmbedJson),
+                embedConfigJson: toDefault(cfg.discordBot.embedConfigJson, defaultEmbedConfigJson),
             };
             out.fxRunner = {
                 serverDataPath: toDefault(cfg.fxRunner.serverDataPath, null),
@@ -195,6 +198,10 @@ export default class ConfigVault {
             cfg.global.menuEnabled = (cfg.global.menuEnabled === 'true' || cfg.global.menuEnabled === true);
             cfg.global.menuAlignRight = (cfg.global.menuAlignRight === 'true' || cfg.global.menuAlignRight === true);
             cfg.global.menuPageKey = cfg.global.menuPageKey || 'Tab';
+            cfg.global.hideDefaultAnnouncement = (cfg.global.hideDefaultAnnouncement === 'true' || cfg.global.hideDefaultAnnouncement === true);
+            cfg.global.hideDefaultDirectMessage = (cfg.global.hideDefaultDirectMessage === 'true' || cfg.global.hideDefaultDirectMessage === true);
+            cfg.global.hideDefaultWarning = (cfg.global.hideDefaultWarning === 'true' || cfg.global.hideDefaultWarning === true);
+            cfg.global.hideDefaultScheduledRestartWarning = (cfg.global.hideDefaultScheduledRestartWarning === 'true' || cfg.global.hideDefaultScheduledRestartWarning === true);
 
             //Logger - NOTE: this one default's i'm doing directly into the class
             cfg.logger.fxserver = toDefault(cfg.logger.fxserver, {});
@@ -206,14 +213,15 @@ export default class ConfigVault {
             cfg.monitor.restarterSchedule = cfg.monitor.restarterSchedule || [];
             cfg.monitor.cooldown = parseInt(cfg.monitor.cooldown) || 60; //not in template - 45 > 60 > 90 -> 60 after fixing the "extra time" logic
             cfg.monitor.resourceStartingTolerance = parseInt(cfg.monitor.resourceStartingTolerance) || 120;
-            cfg.monitor.disableChatWarnings = (cfg.monitor.disableChatWarnings === 'true' || cfg.monitor.disableChatWarnings === true);
 
             //Player Controller
-            cfg.playerController.onJoinCheckBan = (cfg.playerController.onJoinCheckBan === null) ? true : (cfg.playerController.onJoinCheckBan === 'true' || cfg.playerController.onJoinCheckBan === true);
-            cfg.playerController.onJoinCheckWhitelist = (cfg.playerController.onJoinCheckWhitelist === null) ? false : (cfg.playerController.onJoinCheckWhitelist === 'true' || cfg.playerController.onJoinCheckWhitelist === true);
-            cfg.playerController.minSessionTime = parseInt(cfg.playerController.minSessionTime) || 15;
-            cfg.playerController.whitelistRejectionMessage = cfg.playerController.whitelistRejectionMessage || 'You are not yet whitelisted in this server.\nPlease join http://discord.gg/example.\nYour Request ID: <id>';
-            cfg.playerController.wipePendingWLOnStart = (cfg.playerController.wipePendingWLOnStart === null) ? true : (cfg.playerController.wipePendingWLOnStart === 'true' || cfg.playerController.wipePendingWLOnStart === true);
+            cfg.playerDatabase.onJoinCheckBan = (cfg.playerDatabase.onJoinCheckBan === null)
+                ? true
+                : (cfg.playerDatabase.onJoinCheckBan === 'true' || cfg.playerDatabase.onJoinCheckBan === true);
+            cfg.playerDatabase.whitelistMode = cfg.playerDatabase.whitelistMode || 'disabled';
+            cfg.playerDatabase.whitelistedDiscordRoles = cfg.playerDatabase.whitelistedDiscordRoles || [];
+            cfg.playerDatabase.whitelistRejectionMessage = cfg.playerDatabase.whitelistRejectionMessage || '';
+            cfg.playerDatabase.banRejectionMessage = cfg.playerDatabase.banRejectionMessage || '';
 
             //WebServer
             cfg.webServer.disableNuiSourceCheck = (cfg.webServer.disableNuiSourceCheck === 'true' || cfg.webServer.disableNuiSourceCheck === true);
@@ -222,14 +230,13 @@ export default class ConfigVault {
 
             //DiscordBot
             cfg.discordBot.enabled = (cfg.discordBot.enabled === 'true' || cfg.discordBot.enabled === true);
-            cfg.discordBot.prefix = cfg.discordBot.prefix || '!';
-            cfg.discordBot.statusMessage = cfg.discordBot.statusMessage || '**Join:** `change-me:<port>`\n**Players:** <players>\n**Uptime:** <uptime>';
-            cfg.discordBot.commandCooldown = parseInt(cfg.discordBot.commandCooldown) || 30; //not in template
+            cfg.discordBot.embedJson = cfg.discordBot.embedJson || defaultEmbedJson;
+            cfg.discordBot.embedConfigJson = cfg.discordBot.embedConfigJson || defaultEmbedConfigJson;
 
             //FXRunner
             cfg.fxRunner.logPath = cfg.fxRunner.logPath || `${this.serverProfilePath}/logs/fxserver.log`; //not in template
             cfg.fxRunner.autostart = (cfg.fxRunner.autostart === 'true' || cfg.fxRunner.autostart === true);
-            cfg.fxRunner.restartDelay = parseInt(cfg.fxRunner.restartDelay) || 1250; //not in templater
+            cfg.fxRunner.restartDelay = parseInt(cfg.fxRunner.restartDelay) || 1250; //not in template
             cfg.fxRunner.quiet = (cfg.fxRunner.quiet === 'true' || cfg.fxRunner.quiet === true);
         } catch (error) {
             if (verbose) dir(error);
@@ -270,12 +277,22 @@ export default class ConfigVault {
         return cloneDeep(this.config[scope]);
     }
 
+
     //================================================================
     /**
      * Return configs for a specific scope (reconstructed and freezed)
      */
     getScopedStructure(scope) {
         return cloneDeep(this.configFile[scope]);
+    }
+
+
+    //================================================================
+    /**
+     * Return configs for a specific scope (reconstructed and freezed)
+     */
+    getRawFile() {
+        return cloneDeep(this.configFile);
     }
 
 
@@ -289,7 +306,7 @@ export default class ConfigVault {
             global: cfg.global,
             logger: cfg.logger,
             monitor: cfg.monitor,
-            playerController: cfg.playerController,
+            playerDatabase: cfg.playerDatabase,
             webServer: cfg.webServer,
             discordBot: cfg.discordBot,
             fxRunner: cfg.fxRunner,

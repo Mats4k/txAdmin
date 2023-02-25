@@ -2,9 +2,9 @@ const modulename = 'AdminVault';
 import fse from 'fs-extra';
 import fsp from 'node:fs/promises';
 import { cloneDeep } from 'lodash-es';
-
+import { nanoid } from 'nanoid';
 import logger from '@core/extras/console.js';
-import { convars, txEnv, verbose } from '@core/globalData.js';
+import { convars, txEnv, verbose } from '@core/globalData';
 import CitizenFXProvider from './providers/CitizenFX.js';
 import { createHash } from 'node:crypto';
 const { dir, log, logOk, logWarn, logError } = logger(modulename);
@@ -100,7 +100,6 @@ export default class AdminVault {
     }
 
 
-    //================================================================
     /**
      * sets the admins file refresh routine
      */
@@ -111,7 +110,6 @@ export default class AdminVault {
     }
 
 
-    //================================================================
     /**
      * Creates a admins.json file based on the first account
      * @param {string} username
@@ -159,25 +157,31 @@ export default class AdminVault {
     }
 
 
-    //================================================================
     /**
      * Returns a list of admins and permissions
      */
     getAdminsList() {
         if (this.admins == false) return [];
         return this.admins.map((user) => {
-            let out = {
+            return {
                 name: user.name,
                 master: user.master,
                 providers: Object.keys(user.providers),
                 permissions: user.permissions,
             };
-            return out;
         });
     }
 
 
-    //================================================================
+    /**
+     * Returns the raw array of admins, except for the hash
+     */
+    getRawAdminsList() {
+        if (this.admins === false) return [];
+        return cloneDeep(this.admins);
+    }
+
+
     /**
      * Returns all data from an admin by provider user id (ex discord id), or false
      * @param {string} uid
@@ -185,6 +189,7 @@ export default class AdminVault {
     getAdminByProviderUID(uid) {
         if (this.admins == false) return false;
         let id = uid.trim().toLowerCase();
+        if (!id.length) return false;
         let admin = this.admins.find((user) => {
             return Object.keys(user.providers).find((provider) => {
                 return (id === user.providers[provider].id.toLowerCase());
@@ -194,7 +199,6 @@ export default class AdminVault {
     }
 
 
-    //================================================================
     /**
      * Returns all data from an admin by their name, or false
      * @param {string} uname
@@ -210,7 +214,6 @@ export default class AdminVault {
     }
 
 
-    //================================================================
     /**
      * Returns all data from an admin by game identifier, or false
      * @param {string[]} identifiers
@@ -229,7 +232,6 @@ export default class AdminVault {
     }
 
 
-    //================================================================
     /**
      * Returns a list with all registered permissions
      */
@@ -238,7 +240,6 @@ export default class AdminVault {
     }
 
 
-    //================================================================
     /**
      * Writes to storage the admins file
      */
@@ -250,7 +251,6 @@ export default class AdminVault {
     }
 
 
-    //================================================================
     /**
      * Writes to storage the admins file
      */
@@ -278,7 +278,6 @@ export default class AdminVault {
     }
 
 
-    //================================================================
     /**
      * Add a new admin to the admins file
      * NOTE: I'm fully aware this coud be optimized. Leaving this way to improve readability and error verbosity
@@ -335,7 +334,6 @@ export default class AdminVault {
     }
 
 
-    //================================================================
     /**
      * Edit admin and save to the admins file
      * @param {string} name
@@ -394,7 +392,6 @@ export default class AdminVault {
     }
 
 
-    //================================================================
     /**
      * Refreshes admin's social login data
      * @param {string} name
@@ -427,7 +424,6 @@ export default class AdminVault {
     }
 
 
-    //================================================================
     /**
      * Delete admin and save to the admins file
      * @param {string} name
@@ -457,7 +453,6 @@ export default class AdminVault {
         }
     }
 
-    //================================================================
     /**
      * Loads the admins.json file into the admins list
      * NOTE: The verbosity here is driving me insane.
@@ -543,12 +538,11 @@ export default class AdminVault {
     }
 
 
-    //================================================================
     /**
      * Notify game server about admin changes
      */
     async refreshOnlineAdmins() {
-        if (globals.playerController === null) return;
+        if (globals.playerlistManager === null) return;
 
         try {
             //Getting all admin identifiers
@@ -558,10 +552,10 @@ export default class AdminVault {
             }, []);
 
             //Finding online admins
-            const playerList = globals.playerController.getPlayerList();
+            const playerList = globals.playerlistManager.getPlayerList();
             const onlineIDs = playerList.filter((p) => {
-                return p.identifiers.some((i) => adminIDs.includes(i));
-            }).map((p) => p.id);
+                return p.ids.some((i) => adminIDs.includes(i));
+            }).map((p) => p.netid);
 
             return globals.fxRunner.sendEvent('adminsUpdated', onlineIDs);
         } catch (error) {
@@ -570,5 +564,13 @@ export default class AdminVault {
                 dir(error);
             }
         }
+    }
+
+
+    /**
+     * Returns a random token to be used as CSRF Token
+     */
+    genCsrfToken() {
+        return nanoid();
     }
 };

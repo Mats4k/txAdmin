@@ -7,7 +7,7 @@ import { parseArgsStringToArgv } from 'string-argv';
 import StreamValues from 'stream-json/streamers/StreamValues';
 
 import logger from '@core/extras/console.js';
-import { convars, txEnv, verbose } from '@core/globalData.js';
+import { convars, txEnv, verbose } from '@core/globalData';
 import { validateFixServerConfig } from '@core/extras/fxsConfigHelper';
 import OutputHandler from './outputHandler';
 
@@ -26,8 +26,8 @@ const formatCommand = (cmd, ...params) => {
 };
 const getMutableConvars = (isCmdLine = false) => {
     const p = isCmdLine ? '+' : '';
-    const controllerConfigs = globals.playerController.config;
-    const checkPlayerJoin = (controllerConfigs.onJoinCheckBan || controllerConfigs.onJoinCheckWhitelist);
+    const playerDbConfigs = globals.playerDatabase.config;
+    const checkPlayerJoin = (playerDbConfigs.onJoinCheckBan || playerDbConfigs.whitelistMode !== 'disabled');
 
     return [
         //type, name, value
@@ -37,24 +37,27 @@ const getMutableConvars = (isCmdLine = false) => {
         [`${p}set`, 'txAdmin-checkPlayerJoin', checkPlayerJoin],
         [`${p}set`, 'txAdmin-menuAlignRight', globals.config.menuAlignRight],
         [`${p}set`, 'txAdmin-menuPageKey', globals.config.menuPageKey],
+        [`${p}set`, 'txAdmin-hideDefaultAnnouncement', globals.config.hideDefaultAnnouncement],
+        [`${p}set`, 'txAdmin-hideDefaultDirectMessage', globals.config.hideDefaultDirectMessage],
+        [`${p}set`, 'txAdmin-hideDefaultWarning', globals.config.hideDefaultWarning],
+        [`${p}set`, 'txAdmin-hideDefaultScheduledRestartWarning', globals.config.hideDefaultScheduledRestartWarning],
     ];
 };
 const SHUTDOWN_NOTICE_DELAY = 5000;
 
 
 export default class FXRunner {
-    constructor(config) {
-        // logOk('Started');
+    constructor(txAdmin, config) {
         this.config = config;
         this.spawnVariables = null;
         this.fxChild = null;
-        this.restartDelayOverride == false;
+        this.restartDelayOverride = 0;
         this.history = [];
         this.lastKillRequest = 0;
-        this.fxServerPort = null;
         this.fxServerHost = null;
         this.currentMutex = null;
-        this.outputHandler = new OutputHandler();
+        this.cfxId = null;
+        this.outputHandler = new OutputHandler(txAdmin);
     }
 
 
@@ -239,7 +242,13 @@ export default class FXRunner {
 
         //Setting up event handlers
         this.fxChild.on('close', function (code) {
-            logWarn(`>> [${pid}] FXServer Closed. (code ${code})`);
+            let printableCode;
+            if (typeof code === 'number') {
+                printableCode = `0x${code.toString(16).toUpperCase()}`;
+            } else {
+                printableCode = new String(code).toUpperCase();
+            }
+            logWarn(`>> [${pid}] FXServer Closed (${printableCode}).`);
             this.history[historyIndex].timestamps.close = now();
         }.bind(this));
         this.fxChild.on('disconnect', function () {
@@ -352,9 +361,10 @@ export default class FXRunner {
                 this.history[this.history.length - 1].timestamps.kill = now();
             }
             globals.resourcesManager.handleServerStop();
+            globals.playerlistManager.handleServerStop(this.currentMutex);
             return null;
         } catch (error) {
-            const msg = "Couldn't kill the server. Perhaps What Is Dead May Never Die."
+            const msg = "Couldn't kill the server. Perhaps What Is Dead May Never Die.";
             logError(msg);
             if (verbose) dir(error);
             this.fxChild = null;
@@ -402,6 +412,7 @@ export default class FXRunner {
                 eventType,
                 JSON.stringify(data),
             );
+            if(verbose) dir({ eventType, data});
             return this.srvCmd(eventCommand);
         } catch (error) {
             if (verbose) {
@@ -444,8 +455,7 @@ export default class FXRunner {
      * @param {string} command
      */
     liveConsoleCmdHandler(session, command) {
-        log(`${session.auth.username} executing ` + chalk.inverse(' ' + command + ' '), 'SocketIO');
-        globals.logger.admin.write(`[${session.auth.username}] ${command}`);
+        globals.logger.admin.write(session.auth.username, command, 'command');
         globals.fxRunner.srvCmd(command);
     }
 

@@ -26,7 +26,7 @@ export default async function GetStatus(ctx) {
  * Returns the Discord Bot data
  */
 function prepareDiscordStatus() {
-    const client = globals.discordBot.client;
+    const wsStatus = globals.discordBot.wsStatus;
     const statusCodes = [
         ['READY', 'success'],
         ['CONNECTING', 'warning'],
@@ -39,15 +39,15 @@ function prepareDiscordStatus() {
         ['RESUMING', 'warning'],
     ];
 
-    if (client == null) {
+    if (wsStatus === false) {
         return {
             status: 'DISABLED',
             statusClass: 'secondary',
         };
-    } else if (statusCodes[client.ws?.status]) {
+    } else if (statusCodes[wsStatus]) {
         return {
-            status: statusCodes[client.ws?.status][0],
-            statusClass: statusCodes[client.ws?.status][1],
+            status: statusCodes[wsStatus][0],
+            statusClass: statusCodes[wsStatus][1],
         };
     } else {
         return {
@@ -64,6 +64,7 @@ function prepareDiscordStatus() {
  */
 function prepareServerStatus() {
     const out = {
+        mutex: globals.fxRunner?.currentMutex,
         status: globals.healthMonitor.currentStatus || '??',
         process: globals.fxRunner.getStatus(),
         name: globals.config.serverName,
@@ -118,5 +119,10 @@ function prepareHostData() {
  *        Could be done via socket.io, and then playerlist changed would push update events
  */
 function preparePlayersData() {
-    return globals.playerController.getPlayerList();
+    try {
+        return globals.playerlistManager.getPlayerList();
+    } catch (error) {
+        if (verbose) logError(`Failed to generate playerlist with error: ${error.message}`);
+        return false;
+    }
 }

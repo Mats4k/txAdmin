@@ -1,7 +1,7 @@
 const modulename = 'StatsCollector';
 import fse from 'fs-extra';
 import logger from '@core/extras/console.js';
-import { convars, verbose } from '@core/globalData.js';
+import { convars, verbose } from '@core/globalData';
 import { parsePerf, diffPerfs, validatePerfThreadData, validatePerfCacheData } from './statsUtils.js'
 import got from '@core/extras/got.js';
 // import TimeSeries from './timeSeries.js'; //NOTE: may still use for the player counter
@@ -23,8 +23,8 @@ export default class StatsCollector {
             playerCountFile: `${globals.info.serverProfilePath}/data/stats_playerCount_v1.json`,
             performance: {
                 resolution: 5,
-                // lenthCap: 288, //5*288 = 1440 = 1 day
-                lenthCap: 360, //5*360 = 30 hours
+                // lengthCap: 288, //5*288 = 1440 = 1 day
+                lengthCap: 360, //5*360 = 30 hours
             },
         };
         // this.playersBuffer = [];
@@ -71,7 +71,7 @@ export default class StatsCollector {
                 const heatmapData = JSON.parse(rawFile);
                 if (!Array.isArray(heatmapData)) throw new Error('data is not an array');
                 if (!validatePerfCacheData(heatmapData)) throw new Error('invalid data in cache');
-                this.perfSeries = heatmapData;
+                this.perfSeries = heatmapData.slice(-this.hardConfigs.performance.lengthCap);
             } catch (error) {
                 logError(`Failed to load stats_heatmapData_v1 with message: ${error.message}`);
                 logError('Since this is not a critical file, it will be reset.');
@@ -100,7 +100,7 @@ export default class StatsCollector {
 
         //     })
         // }
-        // const playerlist = globals.playerController.getPlayerList();
+        // const playerlist = globals.playerlistManager.getPlayerList();
         // this.playersTimeSeries.add(playerlist.length);
         // dir(playerlist.length)
     }
@@ -126,6 +126,7 @@ export default class StatsCollector {
         //Check pre-condition
         if (this.perfSeries === null) return;
         if (globals.fxRunner.fxChild === null) return;
+        if (globals.playerlistManager === null) return;
 
         //Commom vars
         const now = Date.now();
@@ -174,13 +175,16 @@ export default class StatsCollector {
             ts: now,
             skipped: !islinear,
             mainTickCounter: currPerfData.svMain.count,
-            clients: globals.playerController.getPlayerList().length,
+            clients: globals.playerlistManager.getPlayerList().length,
             perfSrc: currPerfData,
             perf: currPerfDiff,
         };
 
         //Push to cache and save it
         this.perfSeries.push(currSnapshot);
+        if (this.perfSeries.length > this.hardConfigs.performance.lengthCap){
+            this.perfSeries.shift();
+        }
         try {
             await fse.outputJSON(this.hardConfigs.heatmapDataFile, this.perfSeries);
             if (verbose) {

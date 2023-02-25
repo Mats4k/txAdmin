@@ -1,6 +1,6 @@
 const modulename = 'WebServer:RequestAuthenticator';
-import logger from '@core/extras/console.js';
-import { convars, verbose } from '@core/globalData.js';
+import logger, { ogConsole } from '@core/extras/console.js';
+import { convars, verbose } from '@core/globalData';
 const { dir, log, logOk, logWarn, logError } = logger(modulename);
 
 
@@ -17,23 +17,49 @@ export const requestAuth = (epType) => {
         ) {
             await next();
         } else {
-            return ctx.send({error: 'invalid token'});
+            return ctx.send({ error: 'invalid token' });
         }
     };
 
     //Default auth function
     const defaultAuth = async (ctx, next) => {
-        const {isValidAuth} = authLogic(ctx.session, true, epType);
+        const { isValidAuth } = authLogic(ctx.session, true, epType);
+
+        //This is kinda messy and in the wrong place, but it's fine for now
+        if (epType === 'api') {
+            const sessToken = ctx.session?.auth?.csrfToken;
+            const headerToken = ctx.headers['x-txadmin-csrftoken'];
+            if (sessToken && (sessToken !== headerToken)) {
+                //DEBUG
+                // ogConsole.dir({
+                //     route: `${ctx.method} ${ctx.path}`,
+                //     sessToken,
+                //     headerToken
+                // });
+                if (verbose) logWarn(`Invalid CSRF token: ${ctx.path}`, epType);
+                const msg = 'Invalid CSRF token, please report this issue to the txAdmin developers.';
+                //to maintain compatibility with all routes
+                return ctx.send({
+                    type: 'danger',
+                    message: msg,
+                    error: msg
+                });
+            }
+        }
 
         if (!isValidAuth) {
             if (verbose) logWarn(`Invalid session auth: ${ctx.path}`, epType);
             ctx.session.auth = {};
             if (epType === 'web') {
-                return ctx.response.redirect('/auth?logout');
+                if (ctx.method === 'GET' && ctx.path !== '/') {
+                    return ctx.response.redirect(`/auth?logout&r=${encodeURIComponent(ctx.path)}`);
+                } else {
+                    return ctx.response.redirect(`/auth?logout`);
+                }
             } else if (epType === 'api') {
-                return ctx.send({logout:true});
+                return ctx.send({ logout: true });
             } else if (epType === 'nuiStart') {
-                const {isValidAuth, admin} = nuiAuthLogic(ctx.ip, ctx.request.headers);
+                const { isValidAuth, admin } = nuiAuthLogic(ctx.ip, ctx.request.headers);
 
                 if (!isValidAuth) {
                     return ctx.response.redirect('/auth?logout');
@@ -47,6 +73,7 @@ export const requestAuth = (epType) => {
                         permissions: admin.permissions,
                         expires_at: false,
                         isWebInterface: false,
+                        csrfToken: globals.adminVault.genCsrfToken(),
                         //Note: we actually need permissions/master because the first request doesn't
                         // go through authLogic() which sets them up
                     };
@@ -56,7 +83,7 @@ export const requestAuth = (epType) => {
                     await next();
                 }
             } else {
-                return () => {throw new Error('Unknown auth type');};
+                return () => { throw new Error('Unknown auth type'); };
             }
         } else {
             await next();
@@ -65,10 +92,10 @@ export const requestAuth = (epType) => {
 
     //NUI auth function
     const nuiAuth = async (ctx, next) => {
-        const {isValidAuth, rejectReason, admin} = nuiAuthLogic(ctx.ip, ctx.request.headers);
+        const { isValidAuth, rejectReason, admin } = nuiAuthLogic(ctx.ip, ctx.request.headers);
 
         if (!isValidAuth) {
-            return ctx.send({isAdmin:false, reason: rejectReason});
+            return ctx.send({ isAdmin: false, reason: rejectReason });
         } else {
             ctx.nuiSession = {
                 auth: {
@@ -85,7 +112,7 @@ export const requestAuth = (epType) => {
 
     //Socket auth function (used as middleware for all incoming socket.io connections)
     const socketAuth = async (socket, next) => {
-        const {isValidAuth} = authLogic(socket.session, true, epType);
+        const { isValidAuth } = authLogic(socket.session, true, epType);
 
         if (isValidAuth) {
             await next();
@@ -111,7 +138,7 @@ export const requestAuth = (epType) => {
     } else if (epType === 'socket') {
         return socketAuth;
     } else {
-        return () => {throw new Error('Unknown auth type');};
+        return () => { throw new Error('Unknown auth type'); };
     }
 };
 
@@ -137,14 +164,14 @@ export const authLogic = (sess, perm, epType) => {
                 let admin = globals.adminVault.getAdminByName(sess.auth.username);
                 if (admin) {
                     if (
-                        typeof sess.auth.password_hash == 'string'
-                        && admin.password_hash == sess.auth.password_hash
+                        typeof sess.auth.password_hash === 'string'
+                        && admin.password_hash === sess.auth.password_hash
                     ) {
                         isValidAuth = true;
                     } else if (
-                        typeof sess.auth.provider == 'string'
-                        && typeof admin.providers[sess.auth.provider] == 'object'
-                        && sess.auth.provider_uid == admin.providers[sess.auth.provider].id
+                        typeof sess.auth.provider === 'string'
+                        && typeof admin.providers[sess.auth.provider] === 'object'
+                        && sess.auth.provider_identifier === admin.providers[sess.auth.provider].identifier
                     ) {
                         isValidAuth = true;
                     }
@@ -170,7 +197,7 @@ export const authLogic = (sess, perm, epType) => {
         }
     }
 
-    return {isValidAuth, isValidPerm};
+    return { isValidAuth, isValidPerm };
 };
 
 
@@ -189,15 +216,15 @@ const nuiAuthLogic = (reqIP, reqHeader) => {
         if (verbose) {
             logWarn(`NUI Auth Failed: reqIP "${reqIP}" not in ${JSON.stringify(convars.loopbackInterfaces)}.`);
         }
-        return {isValidAuth: false, rejectReason: 'Invalid Request: source'};
+        return { isValidAuth: false, rejectReason: 'Invalid Request: source' };
     }
 
     // Check missing headers
     if (typeof reqHeader['x-txadmin-token'] !== 'string') {
-        return {isValidAuth: false, rejectReason: 'Invalid Request: token header'};
+        return { isValidAuth: false, rejectReason: 'Invalid Request: token header' };
     }
     if (typeof reqHeader['x-txadmin-identifiers'] !== 'string') {
-        return {isValidAuth: false, rejectReason: 'Invalid Request: identifiers header'};
+        return { isValidAuth: false, rejectReason: 'Invalid Request: identifiers header' };
     }
 
     // Check token value
@@ -205,7 +232,7 @@ const nuiAuthLogic = (reqIP, reqHeader) => {
         if (verbose) {
             logWarn(`NUI Auth Failed: token received ${reqHeader['x-txadmin-token']} !== expected ${globals.webServer.luaComToken}.`);
         }
-        return {isValidAuth: false, rejectReason: 'Unauthorized: token value'};
+        return { isValidAuth: false, rejectReason: 'Unauthorized: token value' };
     }
 
     // Check identifier array
@@ -214,7 +241,7 @@ const nuiAuthLogic = (reqIP, reqHeader) => {
         .map((i) => i.trim().toLowerCase())
         .filter((i) => i.length);
     if (!identifiers.length) {
-        return {isValidAuth: false, rejectReason: 'Unauthorized: empty identifier array'};
+        return { isValidAuth: false, rejectReason: 'Unauthorized: empty identifier array' };
     }
 
     // Find admin
@@ -224,12 +251,12 @@ const nuiAuthLogic = (reqIP, reqHeader) => {
             if (verbose) {
                 logWarn(`NUI Auth Failed: no admin found with identifiers ${JSON.stringify(identifiers)}.`);
             }
-            return {isValidAuth: false, rejectReason: 'Unauthorized: admin not found'};
+            return { isValidAuth: false, rejectReason: 'Unauthorized: admin not found' };
         }
-        return {isValidAuth: true, admin};
+        return { isValidAuth: true, admin };
     } catch (error) {
         logWarn(`Failed to authenticate NUI user with error: ${error.message}`);
         if (verbose) dir(error);
-        return {isValidAuth: false, rejectReason: 'internal error'};
+        return { isValidAuth: false, rejectReason: 'internal error' };
     }
 };

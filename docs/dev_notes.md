@@ -1,24 +1,106 @@
 # TODO:
-v4.18.0:
-- [x] fix fxserver settings save issue
-- [x] clarify better the update notifications (path vs minor)
-- [x] fix(core): getOsDistro powershell detection + error handling
-- [x] fix: fixed pidusage and enabled process stats in diagnostics page
-- [x] scheduler should deny scheduled restarts in the same minute
+- [ ] fix: menu > send announcement does not drigger discord msg nor custom event
+- [ ] check why the bot cannot use an announcement channel for announcements (isTextBased() issue?)
+
+(function() {
+    var s = document.createElement('script');
+    s.setAttribute('src', 'https://nthitz.github.io/turndownforwhatjs/tdfw.js');
+    document.body.appendChild(s);
+})()
+
+## Optional
+- [ ] bot: fix http agent options for localAddress
+- [ ] bot: add rate limit events to diagnostics page
+- [ ] change dashboard median player message
+    - top 1000: "your server seems to be in top 1000, join and type /server to track your progress"
+    - top 500: "you might be in top 500, join discord and see if you are eligible for the role"
+- [ ] update readme with new features and contributing warning
+- [ ] stats: 
+    - [ ] ????
+    - [ ] jwe
 
 
-- [ ] `cfg cyclical 'exec' command detected to file` should be blocking instead of warning
+# Next up:
+- [ ] xxxxxx
 
-https://media.discordapp.net/attachments/589106731376836608/1018227573420990564/unknown.png
+//essa logica não é "GetConvarBool" e sim negativa
+GetConvar\('([^']+)', 'false'\) ~= 'true'
+GetConvarBool('$1')
+
+function GetConvarBool(cvName)
+  return (GetConvar(cvName, 'false') ~= 'true')
+end
+
+criar variáveis globais setadas no shared, pra salvar o trabalho de dar GetConvar em todo arquivo
+
+===================
+### MUI update
+5.10.17 ok
+5.11.0 broken
+To test it, remove the `^`
+rm -rf node_modules/; npm i; npm list @mui/material; npm run dev:menu:game
+https://github.com/mui/material-ui/blob/master/CHANGELOG.md
+===================
+
+
+### Server resource scanner
+ScanResourceRoot('C:/whatever/resources/', data => {
+    const fs = require('fs');
+    fs.writeFileSync('L:/tmp/ugh.json', JSON.stringify(data));
+})
 
 
 
-events for dynamic scheduled restarts
+
+
+
 
 teste:
     remover meu admin do sv zap
     dar join
     apertar f1 e ver se aparece a mensagem de perms
+
+# TODO: sooner than later
+- [ ] server logger add events/min average
+- [ ] add lru-cache to `DiscordBot.resolveMember()`
+
+- [ ] no duplicated id type in bans? preparing for the new db migration
+- [ ] reorder `sv_main.lua` and add `local` prefix to most if not all functions
+- [ ] mock out insights page (assets + http reqs)
+- [ ] `cfg cyclical 'exec' command detected to file` should be blocking instead of warning. Behare that this is not trivial without also turning missing exec target read error also being error
+- [ ] maybe some sort of lockfile to admins.json file which would disable admin manager?
+
+
+----------------------------------------------------
+
+
+> Experiment: other than the color, on the perf chart we could draw likes for q50, q90, q99 tick times, maybe it's easier to understand
+```json
+[
+    0.6303839732888147,
+    0.1353923205342237,
+    0.14006677796327213,
+    0.09365609348914858,
+    0.000333889816360601,
+    0.0001669449081803005,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+]
+```
+
+> Maybe do this on the ban message page template
+```css
+background-image: url("https://i.imgur.com/5bFhvBv.png");
+background-repeat: no-repeat;
+background-position: right 15px bottom 15px;
+```
 
 ```js
 //Resource didn't finish starting (if res boot still active)
@@ -38,40 +120,56 @@ teste:
 'server hang detected'
 ```
 
-https://cs.github.com/?scopeName=All+repos&scope=&q=repo%3Avercel%2Fnext.js+%40next%2Fenv
-https://github.com/vercel/next.js/blob/canary/packages/next-env/index.ts
+----------------------------------------------------
+
+## New pages:
+Overview:
+- ???
+
+Players:
+- list of players in a table
+- name + identifiers input
+- auto search with debouncer
+
+History:
+- list of warns/bans in a table
+- search by id OR identifier (single) with select box
+- filter by action type
+- filter by admin, and hotlink it from the admins page
+
+Whitelist Page/routes:
+- show pre approvals and requests in two tables
+- Routes:
+    - get returns
+        - whitelistRequests[]
+        - whitelistApprovals[]
+    - whitelistApprovals (add/remove)
+    - whitelistRequests (approve/deny)
 
 
 
-Optional:
-- [ ] fix cfx.re login match by admin id
-- [ ] fix diagnostics page pidtree/pidusage
-- [ ] add actionRevoked event (rewrite PR #612)
-- [ ] stats: add recipe name + if ptero + random collisions + how many scheduled restart times + drop zap/discord as login methods
-- [ ] stats: jwe
-- [ ] playerlist remove rtl characters
-- [ ] set nui/vite.config.ts > target > chrome103
-
-The Big Things before ts+react rewrite:
-- in-core playerlist state tracking
-- in-core resource state tracking
-- new proxy console util
-- new config (prepared for multiserver)
-- multiserver tx instance (backend only)
+## The Big Things before ts+react rewrite:
+- [x] in-core playerlist state tracking
+- [ ] new proxy console util
+- [ ] global socket.io connection for playerlist + async responses
+- [ ] in-core resource state tracking
+- [ ] new config (prepared for multiserver)
+- [ ] multiserver tx instance (backend only)
 
 
-### Console Rewrite
+## Console Rewrite
 - [ ] Rewrite console logger module to be proxied to node:console
+- [ ] Add `[OUTDATED]` as a clog header prefix 
 - [ ] Move verbose to be part of the console (after the functional-ish change)
 - [ ] Remove the GlobalData from a bunch of files which include it just because of verbosity
 - [ ] Upgrade chalk, drop the chalk.keyword thing
+- [ ] Search for `node:console`, as i'm using it everywhere to test stuff
+- [ ] Migrate logger function to use the new logger component
 
 ```js
 console.log('aaa', {àa:true});
 const {Console} = require('node:console');
-// dir(Object.keys(imp))
-// imp.log({àa:true});
-const xxx = new Console({
+const ogConsole = new Console({
     stdout: process.stdout,
     stderr: process.stderr,
     colorMode: true,
@@ -91,6 +189,59 @@ process.exit();
 ```
 
 
+## New config
+- 2023 acho que os defaults deveriam existir dentro dos components
+e sempre que outro componente precisar saber uma config, deve passar pelo componente
+- need to have a version and have migration, like the database
+
+- do research, but i think we don't need any lib
+- break up cfg files into `txData/<profile>/global.txcfg` and `txData/<profile>/server.txcfg`
+- cfg file format is
+    - trim every line
+    - ignore empty lines or lines starting with // or # (may help people testing stuff, depends on file ext?)
+    - `param_name=<json object>` (usually strings, but we could encode more complex data types if needed)
+    - ignore with warning lines with invalid json objects
+- parameters format suggestion: `playercontroller_onJoinCheckWhitelist` (?)
+- REQUIRING stuff to ve on the config from the setup process is kinda bad (setupProfile.js), but might be good to check if the file is in there
+- at boot, for every default config:
+    - check if the cfg file overwrites it
+    - check if an environment env overwrites it (case insensitive) then print warning (maybe not all vars, due to unauthorized GSPs)
+- warn of any settings in the file that is not being used
+- cfg vault has the defaults in the Zod format (for type safety) or simply
+```js
+const defaults = {
+    playercontroller_onjoincheckwhitelist: {
+        default: false,
+        "accepted types or values??": "??"
+    };
+}
+```
+- maybe get rid of txAdmin.ts passing down specific cfgs, and pass txAdmin instance instead
+- the modules can go `this.config.onJoinCheckWhitelist = txAdmin.cfgVault.configs.playercontroller_onJoinCheckWhitelist`
+- careful because some will passs by value, some may pass as object reference therefore be live updated inside the module
+- modules can do `txAdmin.cfgVault.subscribe(this.refreshConfig.bind(this), [...deps])`
+- settings_get page reads from `txAdmin.cfgVault.configs`, so if a value was overwritten by proc.env, it will not cause confusion
+- settings_save does `txAdmin.cfgVault.save([...])`
+- use zod for validation https://www.npmjs.com/package/zod
+- maybe even use zod's `.default()`?
+- maybe components don't even need to hold a `this.config`? couldn't we just access it directly from the vault?
+- need to keep in mind that many configs are used in the webroutes, so maybe just `txAdmin.config.xxx` and `ServerInstance.config.xxx`?
+- 'convict' was the name of that one lib
+
+
+
+### old settings refactor note:
+- save only what changed
+- make big settings a class (like TFR)
+- settings.getConfig(); - returns the full config tree with unset props as null
+- settings.get('object.dot.notation');
+- settings.set('object.dot.notation');
+- npm search for "object dot"
+
+https://cs.github.com/?scopeName=All+repos&scope=&q=repo%3Avercel%2Fnext.js+%40next%2Fenv
+https://github.com/vercel/next.js/blob/canary/packages/next-env/index.ts
+
+
 
 NOTE: https://github.com/sindresorhus/typescript-definition-style-guide
 
@@ -107,10 +258,6 @@ Up next-ish:
     - [ ] Update `development.md`
 - [ ] checar se outros resources conseguem chamar 'txaLogger:menuEvent'?
 - [ ] add ram usage to perf chart?
-- [ ] dm via snackbar
-- [ ] wav for announcements
-- [ ] replace `txaDropIdentifiers` with `txAdmin:events:playerBanned` hook
-- [ ] Migrate console log to new logger
 - [ ] Migrate all log routes
 - [ ] Add download modal to log pages
 - [ ] replace all fxRunner.srvCmd* and only expose:
@@ -118,10 +265,13 @@ Up next-ish:
     - async fxRunner.srvCmd(array, timeout) - to be awaited with the status response
 - [ ] Quebrar snackbar de not admin em dois, um se confirmado que o problema são os identifiers, outro pra qualquer outro tipo de problema
 - [ ] after menu client messages rework, add lua54
+- [ ] add an fxserver changelog page
+- [ ] check EOL and warn user - new Date('2021-09-14T07:38:51+00:00').getTime()
+- [ ] maybe remove the sv_maxclients enforcement in the cfg file
+- [ ] fix the interface enforcement without port being set as zap server?
 
 
 ### Randoms:
-Change pls the expired ban color to red or something else, because the must people dont know if the ban now expired or be revoked
 - BUG: nui menu triggered announcements are not sent to the discord
 
 -- Why both have the same debug data? https://i.imgur.com/WGawiyr.png
@@ -137,16 +287,20 @@ FIXME: quando o menu abrir, deveria voltar os list item pro default deles
 - FreezeEntityPosition need to get the veh
     - já foi feito? tem issue aberto, e já teve um pr feito
 - começar a ler o ui_label dos manifests e usar na página de resources
+    - será que o bubble já adicionou isso no fxserver? não faz parte das docs ainda (oct/2022)
 
 
 ### Server Insights page ideas:
 - resource load times
 - resource streamed assets
+- biggest events, or resources kbps out? something to help see which resource is bottlenecking the network
+    - apparently this can be done in scheduler quite easily by modifying the definition of `TriggerClientEvent`
 - http requests (grouped by resource, grouped by root domain or both?)
 - performance chart with ram usage
 - player count (loger window, maybe with some other data)
 - top players? 
 - map heatmap?!
+- player disconnect reasons
 - something with server log events like chat messages, kills, leave reasons, etc?
 
 
@@ -201,6 +355,7 @@ https://tanstack.com/virtual/v3
 For the tx ingame menu, replace actions grid with flexbox
 https://youtu.be/3elGSZSWTbM
 around 12:00
+https://immerjs.github.io/immer/ maybe?
 
 
 ### Update Event + Rollout strategy
@@ -208,7 +363,6 @@ This is not compatible with the update events.
 If patch, show update notification immediately (specially important to quick-fix a bug).
 If minor, randomize a delay between 0~24h.
 If patch, randomize a delay 0~72h.
-
 
 Update event idea (not yet greenlit):
 - A box similar to the fxserver update one;
@@ -220,25 +374,6 @@ Update event idea (not yet greenlit):
 - 1 hour after the event start it will become a red update box with generic message, or blue if it's just a patch;
 - Note: regarding the changelog part, bubble asked me to ignore for now (may/13) but will talk again somewhen;
 
-
-### Superjump
-CreateThread(function()
-  local Wait = Wait
-  local id = PlayerId()
-  while true do
-    SetSuperJumpThisFrame(id)
-    Wait(0)
-  end
-end)
-
-
-### refactor settings:
-- save only what changed
-- make big settings a class (like TFR)
-- settings.getConfig(); - returns the full config tree with unset props as null
-- settings.get('object.dot.notation');
-- settings.set('object.dot.notation');
-- npm search for "object dot"
 
 
 ### TP:
@@ -328,10 +463,12 @@ On server start, or admins permission change:
 - We should be able to get rid of our menu state management, mainly the part that sends to lua what are the admin ids when something changes
 To check of admin perm, just do `IsPlayerAceAllowed(src, 'txadmin.xxxxxx')`
 > Don't use, but I'll leave it saved here: https://github.com/citizenfx/fivem/commit/fd3fae946163e8af472b7f739aed6f29eae8105f
+- need to find a way to protect against scripts, cfg/console changing these aces
+- would be cool to have a `SetProtectedMonitorAces(table)` native dedicated to txadmin to set every admin/resource ace perms
 
 
 ### txPointing (old txBanana)
-- code prototype with ItsANoBrainer#1337
+- code prototype with ItsANoBrainer#1337 (https://github.com/tabarra/txBanana)
 - keybind to toggle gun (grab or put away)
 - when you point at player, show above head some info
 - when you "shoot" it will open the player menu and hopefully fire a laser or something
@@ -364,64 +501,6 @@ https://forum.cfx.re/t/standalone-advanced-report-system/4774403/1
 
 
 
-=======================================
-
-Small Stuff:
-- [ ] try json stream on lowdb
-- [ ] block execution if GetCurrentResourceName() != 'monitor'
-- [ ] player modal must show if the user is banned/whitelisted or not, and an easy way to revoke it
-- [ ] check EOL and warn user - new Date('2021-09-14T07:38:51+00:00').getTime()
-- [ ] on recipe import, check if indexOf('<html>')
-- [ ] enable squirrelly file caching via `renderFile()`
-- [ ] make the commands (kick, warn, etc) return success or danger, then edit DialogActionView.tsx
-    - can be done by adding a randid to the command, then making the cmdBuffer match for `<id><OK|NOK>` 
-
-- [ ] break `playerController` actions stuff to another file
-- [ ] if isZapHosting && forceInterface, add `set sv_listingIPOverride "xxx.xxx.xxx.xxx"` in deployer
-- [ ] maybe remove the sv_maxclients enforcement in the cfg file
-- [ ] fix the interface enforcement without port being set as zap server?
-
-
-> ASAP!:
-- [ ] a way to create admins file without cfx.re 
-- [ ] add discord group whitelist (whitelist switch becomes a select box that will enable guildID and roleID)
-    - Manual Approval (default)
-    - Discord: be in guild
-    - Discord: have a role in guild
-- [ ] persistent discord status message that is set up by `/statusfixed`:
-    - this will trigger a big status message to be sent in that channel
-    - this message id can be stored in the config file
-    - if discord id is present, use that instead of name (careful with the pings!)
-- [ ] (really needed?) ignore key bindings commands https://discord.com/channels/577993482761928734/766868363041046589/795420910713831446
-- [ ] add custom event for broadcast
-
-
-> Hopefully now:
-- [ ] check the places where I'm doing `Object.assign()` for shallow clones
-- [ ] create `admin.useroptions` for dark mode, welcome modals and such
-
-> Soon™ (hopefully the next update)
-- [ ] get all functions from `web\public\js\txadmin\players.js` and wrap in some object.
-- [ ] maybe hardcode if(recipeName == plume) to open the readme in a new tab
-- [ ] add new hardware bans
-- [ ] add stats enc?
-- [ ] apply the new action log html to the modal
-- [ ] add `<fivem://connect/xxxxx>` to `/status` by getting `web_baseUrl` maybe from the heartbeat
-- [ ] add ban/whitelist fxs-side cache (last 1000 bans + 1000 whitelists), automatically updated
-    - before starting the server, get last 1k bans/whitelists and write to a json file
-    - quen monitor starts, it will read the file and load to memory
-    - start sending the affected identifiers for the events `txAdmin:events:*` whitelisted, banned, and create a new for action revoked (type, action id).
-    - monitor listens to the event, and when it happens either add it to the cache, or erase from cache
-- [ ] add a commend system?
-- [ ] add stopwatch (or something) to the db functions and print on `/diagnostics`
-
-> Soon™® (hopefully in two months or so)
-- [ ] tweak dashboard update checker behavior
-- [ ] add an fxserver changelog page
-- [ ] Social auth provider setup retry every 15 seconds
-- [ ] show error when saving discord settings with wrong token
-- [ ] break down `playerController` into separate files even more
-- [ ] rename `playerController` to `playerManager`?
 
 =======================================
 
@@ -456,79 +535,6 @@ Message from bubble:
 > - use spectate native
 > and when stopping spectating do the opposite of that
 
-
-
-=======================================
-
-## Bot Commands:
-https://www.npmjs.com/package/eris - avarianknight recommended
-
-DONE:
-/addwl <wl req id>
-/addwl <license>
-
-TODO: Bot commands (in dev order):
-/kick <mention>
-/log <mention> - shows the last 5 log entries for an discord identifier (make it clear its only looking for the ID)
-/ban <mention> <time> <reason>
-/unban <ban-id>
-
-/info - shows your info like join date and play time
-/info <mention> - shows someone else's info
-/addwl <mention>
-/removewl <mention>
-
-=======================================
-
-## Video tutorials
-Requirements:
-    - 2 non-rp recipes
-    - Separate master actions page
-### [OFFICIAL] How to make a FiveM Server tutorial 2021 for beginners!
-Target: absolute beginners, barely have a vps
-- Requirements:
-    - Needs to be a VPS (show suggestion list)
-    - OS: windows server 2016 or 2019 recommended
-    - Hardware specs recommendation
-    - Download Visual C++
-    - You need a forum account (show page, don't go trough)
-    - Create server key
-    - Download xamp (explain most servers require, show heidisql page)
-- Open firewall ports (show windows + OVH)
-- Download artifact (show difference between latest and latest recommended)
-- Set folder structure
-- Run txAdmin (should open chrome, if it doesn't, then open manually)
-- Open page outside VPS to show the ip:port thing
-- Create master account
-- Setup:
-    - Present options
-    - Run PlumeESX recipe
-    - Master Actions -> Reset FXServer Settings
-    - Setup local folder (show endpoint + server.cfg.txt errors)
-- Show how to create admins
-- Callout for advanced tutorial
-### [OFFICIAL] How to update your FiveM Server tutorial 2021
-Target: server owners that followed the stupid Jeva tutorial
-- Why windows only
-- Show current stupid folder structure
-- Download artifact (show difference between latest and latest recommended)
-- Set new folder structure
-- Run txAdmin (should open chrome, if it doesn't, then open manually)
-- Create master account
-- Setup (show endpoint + server.cfg.txt errors)
-- Show how to create admins
-- Open firewall port 40120 (show windows + OVH)
-- Callout for advanced tutorial
-### [OFFICIAL] txAdmin v3 advanced guide 2021
-Target: average txAdmin users
-- creating admins
-- multiple servers
-- discord bot
-- discord login
-- database pruning 
-- scheduled restarter
-
-=======================================
 
 ## References
 
@@ -585,6 +591,7 @@ npx depcheck
 npm-upgrade
 con_miniconChannels script:monitor*
 +setr txAdmin-menuDebug true
+nui_devtoold mpMenu
 
 # hang fxserver (runcode)
 console.log('hanging the thread for 60s');

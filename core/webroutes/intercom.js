@@ -1,7 +1,7 @@
 const modulename = 'WebServer:Intercom';
 import { cloneDeep }  from 'lodash-es';
 import logger from '@core/extras/console.js';
-import { convars, txEnv } from '@core/globalData.js';
+import { convars, txEnv } from '@core/globalData';
 const { dir, log, logOk, logWarn, logError } = logger(modulename);
 
 //Helper functions
@@ -27,21 +27,24 @@ export default async function Intercom(ctx) {
         try {
             globals.healthMonitor.handleHeartBeat('http', postData);
             const extractData = {
+                //FIXME: mover isso pro stats collector, calcular a cada 5 mins, add hardware, recipe, ptero, etc
                 //Changelog:
                 // 6: added txStatsData.randIDFailures
                 // 7: changed web folder paths, which affect txStatsData.pageViews
-                '$statsVersion': 7,
+                // 8: removed discordBotStats and whitelistEnabled
+                '$statsVersion': 8,
                 isZapHosting: convars.isZapHosting,
                 txAdminVersion: txEnv.txAdminVersion,
                 txAdminIsDefaultPort: (convars.txAdminPort == 40120),
                 txAdminUptime: Math.round(process.uptime()),
                 fxServerUptime: globals.fxRunner.getUptime(),
-                discordBotStats: (globals.discordBot.config.enabled) ? globals.discordBot.usageStats : false,
-                banlistEnabled: globals.playerController.config.onJoinCheckBan,
-                whitelistEnabled: globals.playerController.config.onJoinCheckWhitelist,
+                // discordBotStats: (globals.discordBot.config.enabled) ? globals.discordBot.usageStats : false, //FIXME:
+                banlistEnabled: globals.playerDatabase.config.onJoinCheckBan,
+                // whitelistEnabled: globals.playerDatabase.config.onJoinCheckWhitelist, //FIXME: false / string with options > whitelistMode
                 admins: (globals.adminVault.admins) ? globals.adminVault.admins.length : 1,
                 tmpLooksLikeRecipe: (globals.fxRunner.config.serverDataPath || '').includes('.base'),
             };
+            //NOTE: txStatsData.playerDBStats is cheap-ish to get sync from playerDatabase.getDatabaseStats()
             const outData = Object.assign(extractData, globals.databus.txStatsData);
             return ctx.send(JSON.stringify(outData, null, 2));
         } catch (error) {
@@ -58,23 +61,6 @@ export default async function Intercom(ctx) {
             timestamp: new Date(),
             data: postData.resources,
         };
-    } else if (scope == 'checkPlayerJoin') {
-        if (!Array.isArray(postData.identifiers) || typeof postData.name !== 'string') {
-            return ctx.utils.error(400, 'Invalid Request');
-        }
-        try {
-            const resp = await globals.playerController.checkPlayerJoin(postData.identifiers, postData.name);
-            if (resp.allow) {
-                return ctx.send('allow');
-            } else {
-                const msg = resp.reason || 'Access Denied for unknown reason';
-                return ctx.send(`[txAdmin] ${msg}`);
-            }
-        } catch (error) {
-            const msg = `[txAdmin] [JoinCheck] Failed with error: ${error.message}`;
-            logError(msg);
-            return ctx.send(msg);
-        }
     } else {
         return ctx.send({
             type: 'danger',

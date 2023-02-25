@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { SnackbarKey, useSnackbar } from "notistack";
 import { useNuiEvent } from "./useNuiEvent";
 import { Box, Typography } from "@mui/material";
@@ -11,10 +11,10 @@ import {
   useSetPlayerFilter,
   useSetPlayersFilterIsTemp,
 } from "../state/players.state";
-import { usePlayerModalContext } from "../provider/PlayerModalProvider";
 import { useSetAssociatedPlayer } from "../state/playerDetails.state";
 import { txAdminMenuPage, useSetPage } from "../state/page.state";
 import { useAnnounceNotiPosValue } from "../state/server.state";
+import { useSetPlayerModalVisibility } from "@nui/src/state/playerModal.state";
 
 type SnackbarAlertSeverities = "success" | "error" | "warning" | "info";
 
@@ -36,6 +36,7 @@ interface AnnounceMessageProps {
 export interface AddAnnounceData {
   message: string;
   author: string;
+  isDirectMessage: boolean;
 }
 
 const AnnounceMessage: React.FC<AnnounceMessageProps> = ({
@@ -65,13 +66,20 @@ export const useHudListenersService = () => {
   const t = useTranslate();
   const onlinePlayers = usePlayersState();
   const setAssocPlayer = useSetAssociatedPlayer();
-  const { setModalOpen } = usePlayerModalContext();
+  const setModalOpen = useSetPlayerModalVisibility();
   const setPlayerFilter = useSetPlayerFilter();
   const setPlayersFilterIsTemp = useSetPlayersFilterIsTemp();
   const setPage = useSetPage();
   const notiPos = useAnnounceNotiPosValue();
 
-  const snackFormat = (m) => (
+  const announcementSound = useRef<HTMLAudioElement>(
+    new Audio("sounds/announcement.mp3")
+  );
+  const messageSound = useRef<HTMLAudioElement>(
+    new Audio("sounds/message.mp3")
+  );
+
+  const snackFormat = (m: string) => (
     <span style={{ whiteSpace: "pre-wrap" }}>{m}</span>
   );
 
@@ -138,7 +146,7 @@ export const useHudListenersService = () => {
       );
     } else {
       const foundPlayers = onlinePlayers.filter((playerData) =>
-        playerData.name.toLowerCase().includes(target.toLowerCase())
+        playerData.name?.toLowerCase().includes(target.toLowerCase())
       );
 
       if (foundPlayers.length === 1) targetPlayer = foundPlayers[0];
@@ -162,6 +170,7 @@ export const useHudListenersService = () => {
   });
 
   useNuiEvent<AddAnnounceData>("addAnnounceMessage", ({ message, author }) => {
+    announcementSound.current.play();
     enqueueSnackbar(
       <AnnounceMessage
         message={message}
@@ -170,6 +179,24 @@ export const useHudListenersService = () => {
       {
         variant: "warning",
         autoHideDuration: getNotiDuration(message) * 1000,
+        anchorOrigin: {
+          horizontal: notiPos.horizontal,
+          vertical: notiPos.vertical,
+        },
+      }
+    );
+  });
+
+  useNuiEvent<AddAnnounceData>("addDirectMessage", ({ message, author }) => {
+    messageSound.current.play();
+    enqueueSnackbar(
+      <AnnounceMessage
+        message={message}
+        title={t("nui_menu.misc.directmessage_title", { author })}
+      />,
+      {
+        variant: "info",
+        autoHideDuration: getNotiDuration(message) * 1000 * 2, //*2 to slow things down
         anchorOrigin: {
           horizontal: notiPos.horizontal,
           vertical: notiPos.vertical,

@@ -15,11 +15,11 @@ import config from '../.deploy.config.js';
  * Gets the pre-release expiration const to be defined by esbuild.
  * @returns false | timestamp
  */
-const getPreReleaseExpiration = () => {
+const getPreReleaseExpirationString = () => {
     if (process?.env?.TX_PRERELEASE_BUILD === 'true') {
-        return new Date().setUTCHours(24 * config.preReleaseExpirationDays, 0, 0, 0);
+        return new Date().setUTCHours(24 * config.preReleaseExpirationDays, 0, 0, 0).toString();
     } else {
-        return false;
+        return '0';
     }
 };
 
@@ -145,6 +145,7 @@ const runDevTask = () => {
     watcher.on('add', () => { debouncedCopier(monitorPath, 'add'); });
     watcher.on('change', () => { debouncedCopier(monitorPath, 'change'); });
     watcher.on('unlink', () => { debouncedCopier(monitorPath, 'unlink'); });
+    fs.writeFileSync(path.join(monitorPath, 'package.json'), '{"type":"commonjs"}');
 
     //Create txAdmin process runner
     const txInstance = new txAdminRunner(fxServerRootPath, fxsBinPath);
@@ -160,7 +161,7 @@ const runDevTask = () => {
         target: 'node16',
         charset: 'utf8',
         define: {
-            TX_PRERELEASE_BUILD_EXPIRATION: getPreReleaseExpiration(),
+            TX_PRERELEASE_EXPIRATION: getPreReleaseExpirationString(),
         },
         //no minify, no banner
         watch: {
@@ -192,6 +193,7 @@ const runPublishTask = () => {
     //Copy static files
     console.log('Starting txAdmin Prod Builder.');
     copyStaticFiles('./dist/', 'publish');
+    fs.writeFileSync('./dist/package.json', '{"type":"commonjs"}');
 
     //Transpile & bundle core
     try {
@@ -204,7 +206,7 @@ const runPublishTask = () => {
             minifyWhitespace: true,
             charset: 'utf8',
             define: {
-                TX_PRERELEASE_BUILD_EXPIRATION: getPreReleaseExpiration(),
+                TX_PRERELEASE_EXPIRATION: getPreReleaseExpirationString(),
             },
             banner: {
                 js: txLicenseBanner,
@@ -226,9 +228,9 @@ const runPublishTask = () => {
 /**
  * Init parts
  */
-process.stdout.write('.\n'.repeat(80) + '\x1B[2J\x1B[H');
 const taskType = process.argv[2];
 if (taskType === 'dev') {
+    process.stdout.write('.\n'.repeat(80) + '\x1B[2J\x1B[H');
     runDevTask();
 } else if (taskType === 'publish') {
     runPublishTask();

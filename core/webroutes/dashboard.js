@@ -17,13 +17,14 @@ export default async function Dashboard(ctx) {
 
     //Shortcut function
     const getPermDisable = (perm) => {
-        return (ctx.utils.checkPermission(perm, modulename, false)) ? '' : 'disabled';
+        return (ctx.utils.hasPermission(perm)) ? '' : 'disabled';
     };
 
     //Preparing render data
     const renderData = {
         headerTitle: 'Dashboard',
         discordEvent: false,
+        serverTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         // discordEvent: {
         //     timestamp: 1645512230000,
         //     time: '45 minutes',
@@ -39,7 +40,7 @@ export default async function Dashboard(ctx) {
             commandKick: getPermDisable('players.kick'),
             commandResources: getPermDisable('commands.resources'),
             controls: getPermDisable('control.server'),
-            controlsClass: (ctx.utils.checkPermission('control.server', modulename, false)) ? 'danger' : 'secondary',
+            controlsClass: (ctx.utils.hasPermission('control.server')) ? 'danger' : 'secondary',
         },
     };
 
